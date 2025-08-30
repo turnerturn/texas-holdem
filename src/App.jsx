@@ -186,30 +186,32 @@ function getBoardTexture(boardCards) {
   const uniqueRanks = new Set(ranks);
   const isPaired = ranks[0] === ranks[1] || ranks[0] === ranks[2] || ranks[1] === ranks[2];
   const isMonotone = uniqueSuits.size === 1;
-  const isTwoTone = uniqueSuits.size === 2;
-  const isRainbow = uniqueSuits.size === 3;
+  const isRainbow = uniqueSuits.size === 3 && suits[0] !== suits[1] && suits[0] !== suits[2] && suits[1] !== suits[2];
+  // High/Low flop detection
+  const highCount = ranks.filter(r => r >= 10).length;
+  const lowCount = ranks.filter(r => r <= 8).length;
+  if (highCount >= 2) return 'high';
+  if (lowCount >= 2) return 'low';
+  // Wet: coordinated (straight/flush draws possible)
   const sortedRanks = [...uniqueRanks].sort((a, b) => a - b);
   const isConnected = sortedRanks[2] - sortedRanks[0] <= 4;
-  const hasAce = ranks.includes(14);
-  // Wet: connected and two-tone or monotone
-  if (isConnected && (isTwoTone || isMonotone)) return 'wet';
-  // Dry: rainbow, unconnected, no ace
-  if (isRainbow && !isConnected && !hasAce) return 'dry';
+  const hasFlushDraw = isMonotone || (uniqueSuits.size === 2 && (suits.filter(s => s === suits[0]).length === 2 || suits.filter(s => s === suits[1]).length === 2));
+  if ((isConnected && hasFlushDraw) || isMonotone) return 'wet';
+  // Dry: rainbow, uncoordinated, no draws
+  if (isRainbow && !isConnected) return 'dry';
   if (isPaired) return 'paired';
   if (isMonotone) return 'monotone';
-  if (hasAce) return 'ace-high';
-  if (sortedRanks[2] <= 7) return 'low-connected';
   return 'other';
 }
 
 // Upswing Poker board texture tips
 const boardTextureTips = {
-  'dry': 'Dry/rainbow flops favor the preflop raiser. C-bet often, especially with high cards. Avoid excessive bluffing if checked to.',
-  'wet': 'Wet/draw-heavy flops connect with many hands. Be cautious with c-bets, expect more calls/raises. Value bet strong hands, check weaker ones.',
+  'dry': 'Dry/rainbow flops (all suits unique, uncoordinated) favor the preflop raiser. C-bet often, especially with high cards. Avoid excessive bluffing if checked to.',
+  'wet': 'Wet flops are coordinated, providing flush and/or straight draws. Be cautious with c-bets, expect more calls/raises. Value bet strong hands, check weaker ones.',
   'paired': 'Paired flops make it hard for opponents to have strong hands. C-bet small with a wide range.',
   'monotone': 'Monotone flops (all one suit) favor hands with a flush card. C-bet less often without a flush draw or made flush.',
-  'ace-high': 'Ace-high flops are good for the preflop raiser. C-bet often, especially with an Ace.',
-  'low-connected': 'Low/connected flops hit the caller’s range more. C-bet less, check more.',
+  'high': 'High flops (two or three cards 10 or higher) favor the preflop raiser. C-bet often, especially with strong hands.',
+  'low': 'Low flops (two or three cards 8 or lower) hit the caller’s range more. C-bet less, check more.',
   'other': 'Play solid poker. Consider your position, hand strength, and opponent tendencies.',
   'unknown': 'Not enough info to classify the board texture.'
 };
