@@ -206,7 +206,7 @@ function getBoardTexture(boardCards) {
 
 // Upswing Poker board texture tips
 const boardTextureTips = {
-  'dry': 'Dry/rainbow flops (all suits unique, uncoordinated) favor the preflop raiser. C-bet often, especially with high cards. Avoid excessive bluffing if checked to.',
+  'dry': 'Dry flops (all suits unique, uncoordinated) favor the preflop raiser. C-bet often, especially with high cards. Avoid excessive bluffing if checked to.',
   'wet': 'Wet flops are coordinated, providing flush and/or straight draws. Be cautious with c-bets, expect more calls/raises. Value bet strong hands, check weaker ones.',
   'paired': 'Paired flops make it hard for opponents to have strong hands. C-bet small with a wide range.',
   'monotone': 'Monotone flops (all one suit) favor hands with a flush card. C-bet less often without a flush draw or made flush.',
@@ -216,20 +216,61 @@ const boardTextureTips = {
   'unknown': 'Not enough info to classify the board texture.'
 };
 
-function getCoachFeedback(action, equity, boardCards) {
+
+function getCoachFeedback(action, equity, boardCards, handCards) {
   const texture = getBoardTexture(boardCards);
   const tip = boardTextureTips[texture] || '';
+  // Detect best hand
+  const allCards = getAllCards(handCards, boardCards);
+  const rankCounts = countBy(allCards, 'rank');
+  const suitCounts = countBy(allCards, 'suit');
+  const isQuads = Object.values(rankCounts).some(c => c === 4);
+  const isFullHouseHand = isFullHouse(allCards);
+  const isFlushHand = isFlush(allCards);
+  const isStraightFlush = isFlushHand && isStraight(allCards);
+  const isBestHand = isStraightFlush || isQuads || isFullHouseHand || isFlushHand;
   let actionMsg = '';
-  if (action === 'Fold') {
-    actionMsg = equity > 20 ? 'Folding with high equity! Consider calling or raising.' : 'Good fold. Sometimes it is best to let go.';
-  } else if (action === 'Check') {
-    actionMsg = equity > 15 ? 'Checking with decent equity. Consider betting for value.' : 'Check is fine here.';
-  } else if (action === 'Bet') {
-    actionMsg = equity < 10 ? 'Betting with low equity is risky.' : 'Nice bet! You have some equity.';
-  } else if (action === 'Raise') {
-    actionMsg = equity < 12 ? 'Raising with low equity can be dangerous.' : 'Aggressive play! Make sure your outs are clean.';
+  if (isBestHand) {
+    if (action === 'Raise' || action === 'Bet') {
+      actionMsg = 'Excellent! You have the best hand. Aggressive play is recommended.';
+    } else if (action === 'Call' || action === 'Check') {
+      actionMsg = 'You have the best hand. Consider betting or raising for value.';
+    } else if (action === 'Fold') {
+      actionMsg = 'Folding the best hand is a big mistake! Always play aggressively with the nuts.';
+    } else {
+      actionMsg = 'Action taken with the best hand.';
+    }
   } else {
-    actionMsg = 'Action taken.';
+    // Check if better hands are possible
+    let possibleBetter = [];
+    if (!isFlushHand && Object.values(suitCounts).some(c => c >= 3)) possibleBetter.push('flush');
+    if (!isFullHouseHand && Object.values(rankCounts).filter(c => c === 2).length >= 2) possibleBetter.push('full house');
+    if (!isQuads && Object.values(rankCounts).some(c => c === 3)) possibleBetter.push('quads');
+    if (!isStraightFlush && isFlushHand && isOpenEndedStraightDraw(allCards)) possibleBetter.push('straight flush');
+    if (possibleBetter.length > 0) {
+      if (action === 'Raise' || action === 'Bet') {
+        actionMsg = `Be cautious! ${possibleBetter.join(', ')} possible. Aggressive play can be risky.`;
+      } else if (action === 'Call' || action === 'Check') {
+        actionMsg = `Good. ${possibleBetter.join(', ')} possible, so caution is wise.`;
+      } else if (action === 'Fold') {
+        actionMsg = `Folding is reasonable. ${possibleBetter.join(', ')} possible.`;
+      } else {
+        actionMsg = 'Action taken.';
+      }
+    } else {
+      // Default feedback
+      if (action === 'Fold') {
+        actionMsg = equity > 20 ? 'Folding with high equity! Consider calling or raising.' : 'Good fold. Sometimes it is best to let go.';
+      } else if (action === 'Check') {
+        actionMsg = equity > 15 ? 'Checking with decent equity. Consider betting for value.' : 'Check is fine here.';
+      } else if (action === 'Bet') {
+        actionMsg = equity < 10 ? 'Betting with low equity is risky.' : 'Nice bet! You have some equity.';
+      } else if (action === 'Raise') {
+        actionMsg = equity < 12 ? 'Raising with low equity can be dangerous.' : 'Aggressive play! Make sure your outs are clean.';
+      } else {
+        actionMsg = 'Action taken.';
+      }
+    }
   }
   return `${actionMsg}\nBoard Texture Tip: ${tip}`;
 }
@@ -268,7 +309,7 @@ function PokerTable() {
     return Math.floor(Math.random() * (pot + 1));
   };
   const [pot, setPot] = useState(() => getRandomPot());
-  const [callAmount, setCallAmount] = useState(() => getRandomAmountToCall(pot));
+  const [betAmount, setbetAmount] = useState(() => getRandomAmountToCall(pot));
   const [lastAction, setLastAction] = useState(null);
   const [coachMsg, setCoachMsg] = useState('Welcome! Take an action to get feedback.');
   const [boardCards, setBoardCards] = useState(Array(3 + Math.floor(Math.random() * 3)).fill('').map(getRandomCard));
@@ -286,12 +327,12 @@ function PokerTable() {
   const outs = detected?.outs || 0;
   const handType = detected?.label || 'No draw';
   const equity = estimateEquity(outs, street);
-  const potOdds = (callAmount > 0 && pot >= 0) ? ((callAmount / (pot + callAmount)) * 100).toFixed(1) : null;
+  const potOdds = (betAmount > 0 && pot >= 0) ? ((betAmount / (pot + betAmount)) * 100).toFixed(1) : null;
   const actualTexture = getBoardTexture(boardCards);
 
   function handleAction(action) {
-    setLastAction(action);
-    setCoachMsg(getCoachFeedback(action, equity, boardCards));
+  setLastAction(action);
+  setCoachMsg(getCoachFeedback(action, equity, boardCards, handCards));
   }
 
   function handleTagClick(tag) {
@@ -316,7 +357,7 @@ function PokerTable() {
     setCoachMsg('New scenario! Take an action to get feedback.');
     const newPot = getRandomPot();
     setPot(newPot);
-    setCallAmount(getRandomAmountToCall(newPot));
+    setbetAmount(getRandomAmountToCall(newPot));
     setLastAction(null);
     setActiveTag(null);
   }
@@ -324,21 +365,8 @@ function PokerTable() {
   return (
     <div className="poker-table">
       <div className="table-center">
-        <div className="pot">
-          Total Pot: $
-          <input
-            type="number"
-            min="0"
-            value={pot}
-            onChange={e => setPot(Number(e.target.value))}
-            style={{ width: '80px', fontSize: '1rem', borderRadius: '6px', border: '1px solid #ccc', marginLeft: '8px' }}
-          />
-        </div>
-        {potOdds !== null && (
-          <div style={{ marginTop: '0.5rem', fontWeight: 'bold', color: '#61dafb' }}>
-            Pot Odds: {potOdds}%
-          </div>
-        )}
+
+
         <div className="board-cards">
           {boardCards.map((card, idx) => renderCard(card))}
         </div>
@@ -358,23 +386,50 @@ function PokerTable() {
             <span style={{ marginLeft: '8px', fontWeight: 'bold' }}>{street.charAt(0).toUpperCase() + street.slice(1)}</span>
           </label>
         </div>
+                <div className="pot">
+           Pot: $
+          <input
+            type="number"
+            min="0"
+            value={pot}
+            onChange={e => setPot(Number(e.target.value))}
+            style={{ width: '80px', fontSize: '1rem', borderRadius: '6px', border: '1px solid #ccc', marginLeft: '8px' }}
+          />
+        </div>
+        {potOdds !== null && (
+          <div style={{ marginTop: '0.5rem', fontWeight: 'bold', color: '#61dafb' }}>
+            Pot Odds: {potOdds}%
+          </div>
+        )}
         <div style={{ marginBottom: '1rem', fontWeight: 'bold', color: '#ffd700' }}>
-          Estimated Equity: {equity}% ({outs} outs)
+          Hand Equity: {equity}% ({outs} outs)
         </div>
         <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: '1rem' }}>
-          <span>Amount to Call: $</span>
+          <span>Bet Amount: $</span>
           <input
             type="number"
             min="0"
             max={pot}
-            value={callAmount}
-            onChange={e => setCallAmount(Number(e.target.value))}
+            value={betAmount}
+            onChange={e => setbetAmount(Number(e.target.value))}
             style={{ width: '80px', fontSize: '1rem', borderRadius: '6px', border: '1px solid #ccc', marginLeft: '8px' }}
           />
-          <button onClick={() => handleAction('Check')} disabled={callAmount !== 0}>Check</button>
-          <button onClick={() => handleAction('Fold')} disabled={callAmount === 0}>Fold</button>
-          <button onClick={() => handleAction('Bet')} disabled={callAmount === 0}>Bet</button>
-          <button onClick={() => handleAction('Raise')} disabled={callAmount === 0}>Raise</button>
+        </div>
+        <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: '1rem' }}>
+          {betAmount === 0 ? (
+            <>
+              <button onClick={() => handleAction('Fold')}>Fold</button>
+              <button onClick={() => handleAction('Check')}>Check</button>
+              <button onClick={() => handleAction('Raise')}>Raise</button>
+            </>
+          ) : (
+            <>
+              <button onClick={() => handleAction('Fold')}>Fold</button>
+              <button onClick={() => handleAction('Check')}>Check</button>
+              <button onClick={() => handleAction('Call')}>Call</button>
+              <button onClick={() => handleAction('Raise')}>Raise</button>
+            </>
+          )}
           <button style={{ marginLeft: '2rem', background: '#61dafb', color: '#222' }} onClick={nextRound}>Next Scenario</button>
         </div>
       </div>
@@ -387,7 +442,6 @@ function PokerTable() {
     </div>
   );
 }
-
 export default function App() {
   return <PokerTable />;
 }
