@@ -273,6 +273,9 @@ function PokerTable() {
   const [coachMsg, setCoachMsg] = useState('Welcome! Take an action to get feedback.');
   const [boardCards, setBoardCards] = useState(Array(3 + Math.floor(Math.random() * 3)).fill('').map(getRandomCard));
   const [handCards, setHandCards] = useState([getRandomCard(), getRandomCard()]);
+  // Texture tag toggles
+  const textureTypes = ['dry', 'wet', 'paired', 'monotone', 'high', 'low'];
+  const [activeTag, setActiveTag] = useState(null);
 
   // Determine street based on number of board cards
   let street = 'flop';
@@ -284,22 +287,38 @@ function PokerTable() {
   const handType = detected?.label || 'No draw';
   const equity = estimateEquity(outs, street);
   const potOdds = (callAmount > 0 && pot >= 0) ? ((callAmount / (pot + callAmount)) * 100).toFixed(1) : null;
+  const actualTexture = getBoardTexture(boardCards);
 
   function handleAction(action) {
     setLastAction(action);
     setCoachMsg(getCoachFeedback(action, equity, boardCards));
   }
 
+  function handleTagClick(tag) {
+    if (activeTag === tag) {
+      setActiveTag(null);
+      setCoachMsg('Tag cleared. Try to identify the flop texture!');
+      return;
+    }
+    setActiveTag(tag);
+    if (tag === actualTexture) {
+      setCoachMsg(`Correct! This flop is classified as "${tag}". ${boardTextureTips[tag]}`);
+    } else {
+      setCoachMsg(`Incorrect. This flop is actually "${actualTexture}". ${boardTextureTips[actualTexture]}`);
+    }
+  }
+
   function nextRound() {
     // Randomize board card count for street
     const newBoardCount = 3 + Math.floor(Math.random() * 3); // 3, 4, or 5
-  setBoardCards(Array(newBoardCount).fill('').map(getRandomCard));
-  setHandCards([getRandomCard(), getRandomCard()]);
-  setCoachMsg('New scenario! Take an action to get feedback.');
-  const newPot = getRandomPot();
-  setPot(newPot);
-  setCallAmount(getRandomAmountToCall(newPot));
-  setLastAction(null);
+    setBoardCards(Array(newBoardCount).fill('').map(getRandomCard));
+    setHandCards([getRandomCard(), getRandomCard()]);
+    setCoachMsg('New scenario! Take an action to get feedback.');
+    const newPot = getRandomPot();
+    setPot(newPot);
+    setCallAmount(getRandomAmountToCall(newPot));
+    setLastAction(null);
+    setActiveTag(null);
   }
 
   return (
@@ -323,6 +342,7 @@ function PokerTable() {
         <div className="board-cards">
           {boardCards.map((card, idx) => renderCard(card))}
         </div>
+
       </div>
       <div className="player-area">
         <div className="player-cards">
