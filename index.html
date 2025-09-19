@@ -1,13 +1,67 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Vite + React</title>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.jsx"></script>
-  </body>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PFR Ranges — Grid (Default Loaded)</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    body { background:#0f1115; color:#e6e6e6; }
+    .range-card { max-width:1100px; margin:2rem auto; }
+    .grid-wrap { background:#171a21; border:1px solid #2a2f3a; border-radius:.5rem; padding:.75rem; }
+    .grid { display:grid; grid-template-columns:2.5rem repeat(13,1fr); gap:3px; user-select:none; }
+    .head { text-align:center; font-size:.8rem; color:#9aa6bd; }
+    .cell { background:#141820; border:1px solid #1f2632; border-radius:.35rem; text-align:center; font-size:.75rem; padding:.35rem .2rem; cursor:pointer; }
+    .cell.open { background:#d779a8; color:#111; }
+    .cell.opt { background:#71a6d2; color:#111; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="card bg-dark border-secondary range-card">
+      <div class="card-header border-secondary">
+        <h5 class="mb-0">Preflop First-In (RFI) — Default Ranges Loaded</h5>
+      </div>
+      <div class="card-body">
+        <input type="range" class="form-range" min="0" max="4" step="1" id="posSlider" value="0">
+        <div class="d-flex justify-content-between small text-secondary mb-3">
+          <span>UTG</span><span>MP</span><span>CO</span><span>BTN</span><span>SB</span>
+        </div>
+        <div class="grid-wrap"><div id="grid" class="grid"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const RANKS = ["A","K","Q","J","T","9","8","7","6","5","4","3","2"];
+    function handAt(r,c){ const r1=RANKS[r], r2=RANKS[c]; if(r===c) return r1+r2; const hi=RANKS[Math.min(r,c)], lo=RANKS[Math.max(r,c)]; return (r<c)?hi+lo+"s":hi+lo+"o"; }
+    const POSITIONS=["UTG","MP","CO","BTN","SB"];
+    let data = {"UTG": {"66": 2, "77": 1, "88": 1, "99": 1, "AA": 1, "AKs": 1, "AQs": 1, "AJs": 1, "ATs": 1, "A9s": 1, "A8s": 1, "A7s": 1, "A6s": 1, "A5s": 1, "A4s": 1, "A3s": 1, "A2s": 1, "AKo": 1, "KK": 1, "KQs": 1, "KJs": 1, "KTs": 1, "K9s": 1, "K8s": 1, "K7s": 1, "K6s": 2, "K5s": 2, "AQo": 1, "KQo": 1, "QQ": 1, "QJs": 1, "QTs": 1, "Q9s": 1, "AJo": 1, "KJo": 2, "JJ": 1, "JTs": 1, "ATo": 2, "TT": 1, "T9s": 1}, "MP": {"55": 2, "66": 1, "77": 1, "88": 1, "99": 1, "AJo": 1, "KJo": 1, "QJo": 1, "JJ": 1, "JTs": 1, "J9s": 1, "Q9s": 1, "K9s": 1, "A9s": 1, "ATs": 1, "AJs": 1, "AQs": 1, "KK": 1, "AKo": 1, "AA": 1, "AKs": 1, "AQo": 1, "KQo": 1, "QQ": 1, "QJs": 1, "QTs": 1, "KQs": 1, "KJs": 1, "KTs": 1, "ATo": 1, "KTo": 1, "QTo": 2, "TT": 1, "T9s": 1, "Q8s": 1, "K8s": 1, "A8s": 1, "K7s": 1, "A6s": 1, "K6s": 1, "A7s": 1, "A5s": 1, "A4s": 1, "A3s": 1, "A2s": 1, "Q7s": 2, "Q6s": 2, "A9o": 2}, "CO": {"33": 2, "44": 1, "55": 2, "66": 1, "77": 1, "88": 1, "99": 1, "AJo": 1, "KJo": 1, "QJo": 1, "JJ": 1, "JTs": 1, "J9s": 1, "Q9s": 1, "K9s": 1, "A9s": 1, "ATs": 1, "AJs": 1, "AQs": 1, "KK": 1, "AKo": 1, "AA": 1, "AKs": 1, "AQo": 1, "KQo": 1, "QQ": 1, "QJs": 1, "QTs": 1, "KQs": 1, "KJs": 1, "KTs": 1, "ATo": 1, "KTo": 1, "QTo": 1, "TT": 1, "T9s": 1, "Q8s": 1, "K8s": 1, "A8s": 1, "K7s": 1, "A6s": 1, "K6s": 1, "A7s": 1, "A5s": 1, "A4s": 1, "A3s": 1, "A2s": 1, "Q7s": 2, "Q6s": 2, "A9o": 1, "A8o": 1, "A5o": 2, "JTo": 1, "T8s": 1, "J8s": 1, "98s": 1, "87s": 1, "76s": 1, "65s": 2, "54s": 2, "K5s": 1, "K4s": 1, "J7s": 2, "K3s": 2, "K2s": 2}, "BTN": {"22": 1, "33": 1, "44": 1, "55": 1, "66": 1, "77": 1, "88": 1, "99": 1, "AJo": 1, "KJo": 1, "QJo": 1, "JJ": 1, "JTs": 1, "J9s": 1, "Q9s": 1, "K9s": 1, "A9s": 1, "ATs": 1, "AJs": 1, "AQs": 1, "KK": 1, "AKo": 1, "AA": 1, "AKs": 1, "AQo": 1, "KQo": 1, "QQ": 1, "QJs": 1, "QTs": 1, "KQs": 1, "KJs": 1, "KTs": 1, "ATo": 1, "KTo": 1, "QTo": 2, "TT": 1, "T9s": 1, "Q8s": 1, "K8s": 1, "A8s": 1, "K7s": 1, "A6s": 1, "K6s": 1, "A7s": 1, "A5s": 1, "A4s": 1, "A3s": 1, "A2s": 1, "Q7s": 1, "Q6s": 1, "A9o": 1, "A2o": 2, "A3o": 1, "A4o": 1, "A5o": 1, "A6o": 1, "A7o": 1, "A8o": 1, "K7o": 2, "Q8o": 2, "T8o": 2, "98o": 2, "85s": 2, "T5s": 2, "J4s": 2, "J3s": 2, "Q2s": 2, "K5s": 1, "K2s": 1, "K4s": 1, "K3s": 1, "Q3s": 1, "Q4s": 1, "Q5s": 1, "76s": 1, "86s": 1, "96s": 1, "T6s": 1, "J6s": 1, "J7s": 1, "J8s": 1, "T8s": 1, "98s": 1, "87s": 1, "97s": 1, "T7s": 1, "J5s": 1, "K8o": 1, "K9o": 1, "Q9o": 1, "J9o": 1, "T9o": 1, "JTo": 1, "75s": 1, "74s": 2, "65s": 1, "54s": 1, "64s": 2, "53s": 2}, "SB": {"22": 1, "33": 1, "44": 1, "55": 1, "66": 1, "77": 1, "88": 1, "99": 1, "AJo": 1, "KJo": 1, "QJo": 1, "JJ": 1, "JTs": 1, "J9s": 1, "Q9s": 1, "K9s": 1, "A9s": 1, "ATs": 1, "AJs": 1, "AQs": 1, "KK": 1, "AKo": 1, "AA": 1, "AKs": 1, "AQo": 1, "KQo": 1, "QQ": 1, "QJs": 1, "QTs": 1, "KQs": 1, "KJs": 1, "KTs": 1, "ATo": 1, "KTo": 1, "QTo": 2, "TT": 1, "T9s": 1, "Q8s": 1, "K8s": 1, "A8s": 1, "K7s": 1, "A6s": 1, "K6s": 1, "A7s": 1, "A5s": 1, "A4s": 1, "A3s": 1, "A2s": 1, "Q7s": 1, "Q6s": 1, "A9o": 1, "A3o": 1, "A4o": 1, "A5o": 1, "A6o": 1, "A7o": 1, "A8o": 1, "K7o": 2, "Q8o": 2, "T8o": 2, "98o": 2, "85s": 2, "T5s": 2, "J4s": 2, "J3s": 2, "Q2s": 1, "K5s": 1, "K2s": 1, "K4s": 1, "K3s": 1, "Q3s": 1, "Q4s": 1, "Q5s": 1, "76s": 1, "86s": 1, "96s": 1, "T6s": 1, "J6s": 1, "J7s": 1, "J8s": 1, "T8s": 1, "98s": 1, "87s": 1, "97s": 1, "T7s": 1, "J5s": 1, "K8o": 1, "K9o": 1, "Q9o": 1, "J9o": 1, "T9o": 1, "JTo": 1, "75s": 1, "74s": 2, "65s": 1, "54s": 1, "64s": 2, "53s": 2}};
+
+    const gridEl=document.getElementById('grid'); const slider=document.getElementById('posSlider');
+
+    function buildGrid(){ 
+      gridEl.innerHTML="";
+      let blank=document.createElement('div'); blank.className="head"; gridEl.appendChild(blank);
+      for(let c=0;c<13;c++){let h=document.createElement('div');h.className="head";h.textContent=RANKS[c];gridEl.appendChild(h);}
+      for(let r=0;r<13;r++){let h=document.createElement('div');h.className="head";h.textContent=RANKS[r];gridEl.appendChild(h);
+        for(let c=0;c<13;c++){let k=handAt(r,c);let div=document.createElement('div');div.className="cell";div.dataset.key=k;gridEl.appendChild(div);} 
+      }
+      applyPosition();
+    }
+
+    function applyPosition(){ 
+      const pos=POSITIONS[parseInt(slider.value,10)];
+      const map=data[pos]||{};
+      gridEl.querySelectorAll('.cell').forEach(cell=>{ 
+        const v=map[cell.dataset.key]||0;
+        cell.classList.toggle('open',v===1);
+        cell.classList.toggle('opt',v===2);
+      });
+    }
+
+    slider.addEventListener('input',applyPosition);
+    buildGrid();
+  </script>
+</body>
 </html>
